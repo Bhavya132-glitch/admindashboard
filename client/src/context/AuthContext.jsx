@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (name, password) => {
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/login', { name, password });
+            const res = await axios.post('/api/auth/login', { name, password });
             const { token, username } = res.data;
             localStorage.setItem('token', token);
             localStorage.setItem('username', username);
@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
 
     const signup = async (username, password) => {
         try {
-            await axios.post('http://localhost:5000/api/auth/signup', { username, password });
+            await axios.post('/api/auth/signup', { username, password });
             return { success: true };
         } catch (err) {
             return { success: false, error: err.response?.data?.message || 'Signup failed' };

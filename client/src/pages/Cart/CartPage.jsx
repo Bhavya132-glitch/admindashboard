@@ -19,7 +19,7 @@ const CartPage = () => {
 
     const fetchItems = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/cart');
+            const res = await axios.get('/api/cart');
             setItems(res.data);
         } catch (err) {
             console.error('Failed to fetch items', err);
@@ -33,7 +33,7 @@ const CartPage = () => {
     const handleAddItem = async () => {
         if (!newItemName.trim()) return;
         try {
-            const res = await axios.post('http://localhost:5000/api/cart', {
+            const res = await axios.post('/api/cart', {
                 name: newItemName,
                 quantity: 1,
                 price: 0
@@ -50,7 +50,7 @@ const CartPage = () => {
             // Optimistic update
             setItems(items.map(item => item._id === id ? { ...item, ...updates } : item));
 
-            await axios.put(`http://localhost:5000/api/cart/${id}`, updates);
+            await axios.put(`/api/cart/${id}`, updates);
         } catch (err) {
             console.error('Failed to update item', err);
             fetchItems(); // Revert on error
@@ -59,7 +59,7 @@ const CartPage = () => {
 
     const handleDeleteItem = async (id) => {
         try {
-            await axios.delete(`http://localhost:5000/api/cart/${id}`);
+            await axios.delete(`/api/cart/${id}`);
             setItems(items.filter(item => item._id !== id));
         } catch (err) {
             console.error('Failed to delete item', err);
@@ -68,7 +68,7 @@ const CartPage = () => {
 
     const handleClearAll = async () => {
         try {
-            await axios.delete('http://localhost:5000/api/cart');
+            await axios.delete('/api/cart');
             setItems([]);
         } catch (err) {
             console.error('Failed to clear cart', err);
