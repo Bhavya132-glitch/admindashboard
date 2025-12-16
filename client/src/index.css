@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --primary: #6B46C1;
+  --primary-hover: #553C9A;
+  --bg-gradient: linear-gradient(135deg, #E0E7FF 0%, #E8D5FF 100%);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+  --text-dark: #1F2937;
+  --text-gray: #4B5563;
+  --danger: #EF4444;
+  --success: #10B981;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background: var(--bg-gradient);
+  color: var(--text-dark);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+}
+
+#root {
+  width: 100%;
+}
+
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 16px;
+}
+
+.button-primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.button-primary:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.input-field {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-family: inherit;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-field:focus {
+  border-color: var(--primary);
+}
+
+.container {
+  max-width: 600px; /* Mobile first constrained, desktop adjusted later */
+  margin: 0 auto;
+  padding: 20px;
+  width: 100%;
+}
+
+h1, h2, h3 {
+  color: var(--text-dark);
+}
