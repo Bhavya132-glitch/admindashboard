@@ -21,7 +21,7 @@ const HistoryPage = () => {
 
     const fetchHistory = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/history');
+            const res = await axios.get('/api/history');
             setHistory(res.data);
             setFilteredHistory(res.data);
         } catch (err) {

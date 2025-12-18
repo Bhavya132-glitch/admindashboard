@@ -23,16 +23,12 @@ const CartPage = () => {
 
     const fetchItems = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/cart');
+            const res = await axios.get('/api/cart');
             setItems(res.data);
         } catch (err) {
             console.error('Failed to fetch items', err);
         }
     };
-
-    useEffect(() => {
-        fetchItems();
-    }, []); // Run once on mount
 
     // Filter logic
     useEffect(() => {
@@ -70,18 +66,12 @@ const CartPage = () => {
 
         const finalizeItem = () => {
             if (currentName.length > 0) {
-                // If we have a pending quantity, use it. Else default to 1.
-                // UNLESS we are currently parsing a structure like "2 Apples", where qty was seen BEFORE name.
-                // Logic: 
-                // 1. "Chicken 2" -> Name "Chicken", Qty becomes 2.
-                // 2. "2 Chicken" -> Qty 2, Name "Chicken".
-
                 const qty = pendingQty !== null ? pendingQty : 1;
 
-                // Do not add if name is just a stop word (rare due to filtering but possible)
+                // Do not add if name is just a stop word
                 if (!STOP_WORDS.has(currentName.join(' '))) {
                     results.push({
-                        name: currentName.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '), // Capitalize
+                        name: currentName.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
                         quantity: qty,
                         historyId: currentId
                     });
@@ -98,21 +88,17 @@ const CartPage = () => {
 
             // 1. Check ID (5+ Digits)
             if (/^\d{5,8}$/.test(token)) {
-                // If we were building an item "Milk 12345", finalize "Milk" (qty 1) and attach ID?
-                // User said: "Milk 12345"
-                // Ideally: Name="Milk", historyId="12345".
-                // So if we have a name, this ID belongs to it.
                 currentId = token;
                 continue;
             }
 
             // 2. Check for "Name-Qty" hyphenated
             if (token.includes('-')) {
-                finalizeItem(); // detected new item start likely
+                finalizeItem();
                 const parts = token.split('-');
                 const possibleQty = parseQty(parts[parts.length - 1]);
                 if (possibleQty !== null && parts.length > 1) {
-                    const namePart = parts.slice(0, parts.length - 1).join(' '); // rejoin with space if multiple hyphens? unlikely
+                    const namePart = parts.slice(0, parts.length - 1).join(' ');
                     results.push({ name: namePart, quantity: possibleQty, historyId: currentId });
                     currentId = null;
                     continue;
@@ -120,42 +106,28 @@ const CartPage = () => {
             }
 
             // 3. Check for Quantity (Number)
-            const qtyVal = parseQty(token); // Handles "1/2", "0.5", "2"
+            const qtyVal = parseQty(token);
 
             if (qtyVal !== null) {
-                // It's a number.
-                // Is it "Name Qty" (end of item) OR "Qty Name" (start of item)?
-
                 if (currentName.length > 0) {
-                    // We have a name accumulating. "Chicken Noodle 2"
-                    // Assume this number completes the item.
                     pendingQty = qtyVal;
                     finalizeItem();
                 } else {
-                    // No name yet. "2 Chicken..."
-                    // This is a new item starting with a quantity.
-                    finalizeItem(); // Safety flush
+                    finalizeItem();
                     pendingQty = qtyVal;
                 }
             } else {
-                // It's a word.
                 if (STOP_WORDS.has(token)) {
-                    // It's a filler.
-                    // "and" might act as a separator.
                     if (token === 'and' && currentName.length > 0) {
-                        // "Chicken and..." -> finalize Chicken (qty 1 or pending)
                         finalizeItem();
                     }
                     continue;
                 }
-
-                // Effective Word
                 currentName.push(token);
             }
         }
 
-        finalizeItem(); // Flush remaining
-
+        finalizeItem();
         return results;
     };
 
@@ -166,14 +138,11 @@ const CartPage = () => {
         console.log('Parsed:', parsedItems);
 
         // History Logging
-        // Logic: If any item has a historyId, Log that. Else log the raw query?
-        // User: "store in history just that number".
-        // If multiple IDs? Log all? 
         const idsToLog = parsedItems.filter(i => i.historyId).map(i => i.historyId);
         const logContent = idsToLog.length > 0 ? idsToLog.join(', ') : newItemName;
 
         try {
-            await axios.post('http://localhost:5000/api/history', { query: logContent });
+            await axios.post('/api/history', { query: logContent });
         } catch (hErr) {
             console.error('Failed to save history', hErr);
         }
@@ -186,10 +155,10 @@ const CartPage = () => {
 
                 if (existingItem) {
                     const newQty = existingItem.quantity + item.quantity;
-                    await axios.put(`http://localhost:5000/api/cart/${existingItem._id}`, { quantity: newQty });
+                    await axios.put(`/api/cart/${existingItem._id}`, { quantity: newQty });
                     existingItem.quantity = newQty;
                 } else {
-                    const res = await axios.post('http://localhost:5000/api/cart', {
+                    const res = await axios.post('/api/cart', {
                         name: item.name,
                         quantity: item.quantity,
                         price: 0
@@ -198,8 +167,8 @@ const CartPage = () => {
                 }
             }
 
-            setItems(newItemsList); // Optimistic sync
-            await fetchItems(); // Hard sync
+            setItems(newItemsList);
+            await fetchItems();
             setNewItemName('');
         } catch (err) {
             console.error('Failed to process items', err);
@@ -207,10 +176,12 @@ const CartPage = () => {
         }
     };
 
+    // ...
+
     const handleUpdateItem = async (id, updates) => {
         try {
             setItems(items.map(item => item._id === id ? { ...item, ...updates } : item));
-            await axios.put(`http://localhost:5000/api/cart/${id}`, updates);
+            await axios.put(`/api/cart/${id}`, updates);
         } catch (err) {
             console.error('Failed to update item', err);
             fetchItems();
@@ -219,7 +190,7 @@ const CartPage = () => {
 
     const handleDeleteItem = async (id) => {
         try {
-            await axios.delete(`http://localhost:5000/api/cart/${id}`);
+            await axios.delete(`/api/cart/${id}`);
             const newItems = items.filter(item => item._id !== id);
             setItems(newItems);
         } catch (err) {
@@ -230,9 +201,9 @@ const CartPage = () => {
     const handleClearAll = async () => {
         try {
             // Clear Cart
-            await axios.delete('http://localhost:5000/api/cart');
+            await axios.delete('/api/cart');
             // Clear History
-            await axios.delete('http://localhost:5000/api/history');
+            await axios.delete('/api/history');
             setItems([]);
         } catch (err) {
             console.error('Failed to clear data', err);
