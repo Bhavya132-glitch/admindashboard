@@ -30,6 +30,10 @@ const CartPage = () => {
         }
     };
 
+    useEffect(() => {
+        fetchItems();
+    }, []); // Run once on mount
+
     // Filter logic
     useEffect(() => {
         if (!searchFilter.trim()) {
@@ -44,19 +48,50 @@ const CartPage = () => {
         // Handle fractions like "1/2"
         if (token.includes('/')) {
             const [num, den] = token.split('/');
-            return parseFloat(num) / parseFloat(den);
+            const val = parseFloat(num) / parseFloat(den);
+            return isFinite(val) ? val : null;
         }
-        // Handle "0.5kg", "2kg" - strip non-numeric suffix if present after number
+
+        // Strict Number Check
+        // Allow "1", "1.5", "1kg", "1.5L"
+        // Disallow "7up", "3rd", "1st" where text follows immediately and isn't a unit
+
+        if (!/^\d+(\.\d+)?/.test(token)) return null;
+
         const numericPart = parseFloat(token);
-        return isNaN(numericPart) ? null : numericPart;
+        if (isNaN(numericPart)) return null;
+
+        // Check suffix (everything after the number)
+        const match = token.match(/^(\d+(?:\.\d+)?)(\w*)$/);
+        if (!match) return null;
+
+        const [, , suffix] = match;
+        const validUnits = new Set(['', 'kg', 'g', 'l', 'ml', 'pcs', 'pc', 'pack', 'pkt', 'box']);
+
+        if (validUnits.has(suffix.toLowerCase())) {
+            return numericPart;
+        }
+
+        // Special Case: non-unit suffix implies Word (e.g. "7up")
+        return null;
     };
 
     const parseInput = (input) => {
-        // Conversational Stop Words
-        const STOP_WORDS = new Set(['bro', 'i', 'want', 'need', 'give', 'add', 'just', 'only', 'means', 'that', 'item', 'and', 'please', 'to', 'for', 'a', 'of']);
+        // Expanded Stop Words
+        const STOP_WORDS = new Set([
+            'bro', 'brother', 'sir', 'madam', 'hello', 'hi', 'hey', 'greetings',
+            'i', 'me', 'my', 'we', 'us',
+            'want', 'wants', 'wanted', 'need', 'needs', 'needed', 'would', 'like',
+            'give', 'send', 'bring', 'add', 'put', 'order', 'take', 'get',
+            'and', 'or', 'with', 'also', 'as', 'well',
+            'just', 'only', 'simply', 'merely',
+            'means', 'that', 'this', 'these', 'those', 'is', 'are', 'was', 'were',
+            'please', 'pls', 'plz', 'kindly',
+            'to', 'for', 'from', 'in', 'on', 'at', 'by', 'of', 'a', 'an', 'the'
+        ]);
 
-        // Normalize: lower case, remove punctuation (keeping / and .)
-        const cleanInput = input.replace(/[^\w\s\/\.]/g, '').toLowerCase();
+        // Normalize: lower case, remove punctuation (keeping / and . and -)
+        const cleanInput = input.replace(/[^\w\s\/\.\-]/g, '').toLowerCase();
         const tokens = cleanInput.split(/\s+/).filter(t => t.trim().length > 0);
 
         const results = [];
@@ -68,8 +103,10 @@ const CartPage = () => {
             if (currentName.length > 0) {
                 const qty = pendingQty !== null ? pendingQty : 1;
 
-                // Do not add if name is just a stop word
-                if (!STOP_WORDS.has(currentName.join(' '))) {
+                const nameStr = currentName.join(' ');
+
+                // Do not add if name is just a stop word or numeric
+                if (!STOP_WORDS.has(nameStr) && isNaN(parseFloat(nameStr))) {
                     results.push({
                         name: currentName.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
                         quantity: qty,
@@ -80,13 +117,16 @@ const CartPage = () => {
                 currentName = [];
                 pendingQty = null;
                 currentId = null;
+            } else if (pendingQty !== null) {
+                // Formatting clean up: pendingQty without name is dropped
+                pendingQty = null;
             }
         };
 
         for (let i = 0; i < tokens.length; i++) {
             const token = tokens[i];
 
-            // 1. Check ID (5+ Digits)
+            // 1. Check ID (5+ Digits) -- Prioritize this over Quantity
             if (/^\d{5,8}$/.test(token)) {
                 currentId = token;
                 continue;
@@ -110,19 +150,27 @@ const CartPage = () => {
 
             if (qtyVal !== null) {
                 if (currentName.length > 0) {
+                    // "Chicken 2" -> Finalize
                     pendingQty = qtyVal;
                     finalizeItem();
                 } else {
+                    // "2 Chicken" -> Start new item
                     finalizeItem();
                     pendingQty = qtyVal;
                 }
             } else {
+                // Word
+
+                // Skip Stop Words
                 if (STOP_WORDS.has(token)) {
-                    if (token === 'and' && currentName.length > 0) {
+                    // "and" handling: separator
+                    if ((token === 'and' || token === 'with') && currentName.length > 0) {
                         finalizeItem();
                     }
                     continue;
                 }
+
+                // Effective Word
                 currentName.push(token);
             }
         }
@@ -134,8 +182,18 @@ const CartPage = () => {
     const handleAddItem = async () => {
         if (!newItemName.trim()) return;
 
-        const parsedItems = parseInput(newItemName);
+        let parsedItems = parseInput(newItemName);
         console.log('Parsed:', parsedItems);
+
+        // Fallback: If parsing resulted in nothing (e.g. purely stop words or confusing input),
+        // treat the whole input as a single item.
+        if (parsedItems.length === 0) {
+            parsedItems = [{
+                name: newItemName.trim(),
+                quantity: 1,
+                historyId: null
+            }];
+        }
 
         // History Logging
         const idsToLog = parsedItems.filter(i => i.historyId).map(i => i.historyId);
@@ -148,6 +206,7 @@ const CartPage = () => {
         }
 
         const newItemsList = [...items];
+        let errorOccurred = false;
 
         try {
             for (const item of parsedItems) {
@@ -172,11 +231,26 @@ const CartPage = () => {
             setNewItemName('');
         } catch (err) {
             console.error('Failed to process items', err);
+            errorOccurred = true;
+
+            if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+                alert("Your session has expired. Please login again.");
+                logout();
+                navigate('/login');
+                return;
+            }
+
+            // Show alert to user if something goes wrong (e.g. Server error)
+            const msg = err.response?.data?.error || err.response?.data?.message || err.message || "Failed to add item";
+            alert(`Error: ${msg}`);
             await fetchItems();
         }
-    };
 
-    // ...
+        // If we had a logic error but not a network crash, ensure we clear input if successful
+        if (!errorOccurred) {
+            setNewItemName('');
+        }
+    };
 
     const handleUpdateItem = async (id, updates) => {
         try {
@@ -264,7 +338,7 @@ const CartPage = () => {
                     <input
                         type="text"
                         className="input-field"
-                        placeholder="Add items (e.g. Rice 1/2kg, Milk 12345)..."
+                        placeholder="Add items (e.g. Rice 1/2kg)..."
                         value={newItemName}
                         onChange={(e) => setNewItemName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
